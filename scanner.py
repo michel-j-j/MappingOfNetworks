@@ -5,7 +5,7 @@ import threading
 
 dpg.create_context()
 
-# Variables globales
+# Global variables
 scanning = False
 stop_scan = False
 scan_results = {}
@@ -29,35 +29,35 @@ def get_local_ip():
 
 
 def construct_network_range(ip, cidr=24):
-    octetos = ip.split('.')
-    network_ip = '.'.join(octetos[:3] + ['0'])
+    octets = ip.split('.')
+    network_ip = '.'.join(octets[:3] + ['0'])
     return f"{network_ip}/{cidr}"
 
 
 def generate_recommendations():
     recommendations = []
 
-    # Detección de puertos comunes (iconos reemplazados por texto)
+    # Common port detection
     common_ports = {
-        21: "[FTP] Considera deshabilitar FTP y usar SFTP/FTPS",
-        22: "[SSH] Asegúrate de usar autenticación por clave y cambia el puerto predeterminado",
-        80: "[HTTP] Configura un firewall y usa HTTPS",
-        443: "[HTTPS] Verifica que tu certificado SSL esté actualizado",
-        3389: "[RDP] Nunca expongas este puerto a Internet directamente"
+        21: "[FTP] Consider disabling FTP and use SFTP/FTPS",
+        22: "[SSH] Ensure key-based authentication and change default port",
+        80: "[HTTP] Configure firewall and use HTTPS",
+        443: "[HTTPS] Verify SSL certificate is updated",
+        3389: "[RDP] Never expose this port directly to the Internet"
     }
 
-    # Generar recomendaciones basadas en puertos abiertos
+    # Generate recommendations based on open ports
     for port in open_ports:
         if port in common_ports:
             recommendations.append(f"• {common_ports[port]}")
 
-    # Recomendaciones generales
+    # General recommendations
     general_recommendations = [
-        "• [Seguridad] Cambia las contraseñas predeterminadas de tus dispositivos",
-        "• [Actualización] Actualiza el firmware de tu router regularmente",
-        "• [Red] Separa tu red en subredes para dispositivos IoT",
-        "• [Wi-Fi] Usa cifrado WPA2/WPA3 en tu red inalámbrica",
-        "• [Configuración] Deshabilita UPnP si no es estrictamente necesario"
+        "• [Security] Change default device passwords",
+        "• [Update] Regularly update router firmware",
+        "• [Network] Segment your network for IoT devices",
+        "• [Wi-Fi] Use WPA2/WPA3 encryption",
+        "• [Configuration] Disable UPnP if not strictly needed"
     ]
 
     return recommendations + general_recommendations
@@ -74,14 +74,14 @@ def scan_network(network):
 
     try:
         nm = nmap.PortScanner()
-        _log(f"Iniciando escaneo de red: {network}...")
+        _log(f"Starting network scan: {network}...")
 
-        # Escaneo de hosts
+        # Host discovery
         nm.scan(hosts=network, arguments='-sn')
         hosts_list = nm.all_hosts()
 
         if not hosts_list:
-            _log("No se encontraron hosts en la red")
+            _log("No hosts found in the network")
             return
 
         for host in hosts_list:
@@ -89,9 +89,9 @@ def scan_network(network):
                 break
 
             current_hosts.append(host)
-            _log(f"\nEscaneando host: {host}")
+            _log(f"\nScanning host: {host}")
 
-            # Escaneo de puertos
+            # Port scanning
             try:
                 nm.scan(host, arguments='-sT -Pn -T4')
 
@@ -113,35 +113,35 @@ def scan_network(network):
                 _update_gui()
 
             except Exception as e:
-                _log(f"Error en host {host}: {str(e)}")
+                _log(f"Error scanning host {host}: {str(e)}")
 
     except Exception as e:
-        _log(f"Error general: {str(e)}")
+        _log(f"General error: {str(e)}")
     finally:
         scanning = False
-        _log("\nEscaneo completado")
+        _log("\nScan completed")
         dpg.enable_item("start_btn")
         dpg.disable_item("stop_btn")
         _update_gui()
 
 
 def _update_gui():
-    # Actualizar resultados principales
+    # Update main results
     dpg.delete_item("results_tree", children_only=True)
 
     for host, info in scan_results.items():
         with dpg.tree_node(label=f"{host} ({info['hostname']})", parent="results_tree"):
-            dpg.add_text(f"Estado: {info['state']}")
-            with dpg.tree_node(label="Puertos detectados"):
+            dpg.add_text(f"State: {info['state']}")
+            with dpg.tree_node(label="Detected Ports"):
                 for port, state in info['ports']:
-                    dpg.add_text(f"Puerto {port}: {state}")
+                    dpg.add_text(f"Port {port}: {state}")
 
-    # Actualizar lista de puertos abiertos
+    # Update open ports list
     dpg.delete_item("open_ports_list", children_only=True)
     for port in sorted(open_ports):
-        dpg.add_text(f"• Puerto {port} abierto", parent="open_ports_list")
+        dpg.add_text(f"• Port {port} open", parent="open_ports_list")
 
-    # Actualizar recomendaciones
+    # Update recommendations
     dpg.delete_item("recommendations_list", children_only=True)
     for recommendation in generate_recommendations():
         dpg.add_text(recommendation, parent="recommendations_list")
@@ -151,7 +151,7 @@ def start_scan_callback():
     global stop_scan
     stop_scan = False
 
-    # Limpiar resultados anteriores
+    # Clear previous results
     scan_results.clear()
     current_hosts.clear()
     open_ports.clear()
@@ -176,53 +176,53 @@ def stop_scan_callback():
 
 
 with dpg.window(tag="MainWindow"):
-    # Sección de configuración
+    # Configuration section
     with dpg.group(horizontal=True):
-        dpg.add_input_text(label="IP Local", default_value=get_local_ip(), readonly=True, width=150)
-        dpg.add_input_text(label="Red", tag="network_input",
+        dpg.add_input_text(label="Local IP", default_value=get_local_ip(), readonly=True, width=150)
+        dpg.add_input_text(label="Network", tag="network_input",
                            default_value=construct_network_range(get_local_ip()), width=200)
-        dpg.add_button(label="Recargar IP",
+        dpg.add_button(label="Refresh IP",
                        callback=lambda: dpg.set_value("network_input", construct_network_range(get_local_ip())))
 
-    # Botones de control
+    # Control buttons
     with dpg.group(horizontal=True):
-        dpg.add_button(label="Iniciar Escaneo", tag="start_btn", callback=start_scan_callback)
-        dpg.add_button(label="Detener Escaneo", tag="stop_btn", show=False, callback=stop_scan_callback)
+        dpg.add_button(label="Start Scan", tag="start_btn", callback=start_scan_callback)
+        dpg.add_button(label="Stop Scan", tag="stop_btn", show=False, callback=stop_scan_callback)
 
-    # Resultados del escaneo
-    dpg.add_text("Resultados del escaneo:")
+    # Scan results
+    dpg.add_text("Scan Results:")
     dpg.add_tree_node(tag="results_tree")
 
-    # Sección de puertos abiertos
+    # Open ports section
     dpg.add_separator()
-    with dpg.collapsing_header(label="Puertos Abiertos Detectados", default_open=True):
+    with dpg.collapsing_header(label="Detected Open Ports", default_open=True):
         with dpg.child_window(height=100, tag="open_ports_list"):
             pass
 
-    # Pestaña de recomendaciones
+    # Recommendations tab
     dpg.add_separator()
-    with dpg.collapsing_header(label="Recomendaciones de Seguridad", default_open=True):
+    with dpg.collapsing_header(label="Security Recommendations", default_open=True):
         with dpg.child_window(height=200, tag="recommendations_list"):
-            dpg.add_text("Ejecuta un escaneo para obtener recomendaciones", tag="placeholder_text")
+            dpg.add_text("Run a scan to get recommendations", tag="placeholder_text")
 
-    # Log de actividad
+    # Activity log
     dpg.add_separator()
-    dpg.add_text("Registro de actividad:")
+    dpg.add_text("Activity Log:")
     with dpg.child_window(height=200, tag="log_window"):
         pass
 
-dpg.create_viewport(title='Analizador de Red', width=1000, height=800)
+dpg.create_viewport(title='Network Analyzer', width=1000, height=800)
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.set_primary_window("MainWindow", True)
 
-# Verificar si nmap está instalado
+# Check nmap installation
 try:
     nm = nmap.PortScanner()
 except:
     with dpg.window(label="Error", modal=True, show=True):
-        dpg.add_text("Error: nmap no está instalado o no se pudo encontrar.")
-        dpg.add_button(label="Cerrar", callback=lambda: dpg.stop_dearpygui())
+        dpg.add_text("Error: nmap is not installed or could not be found.")
+        dpg.add_button(label="Close", callback=lambda: dpg.stop_dearpygui())
 
 dpg.start_dearpygui()
 dpg.destroy_context()
